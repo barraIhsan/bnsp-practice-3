@@ -52,6 +52,9 @@ export const getUserById = async (req) => {
 };
 
 export const createUser = async (req) => {
+  if (req.user.role !== "admin") {
+    throw new ResponseError(403, "Unauthorized");
+  }
   const validated = validate(userSchema, req.body);
   const { username, password } = validated;
 

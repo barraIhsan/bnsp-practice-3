@@ -4,6 +4,9 @@ import { productsSchema } from "../validation/products.js";
 import validate from "../validation/validate.js";
 
 export const getProducts = async (req) => {
+  if (!(req.user.role === "admin" || req.user.role === "kasir")) {
+    throw new ResponseError(403, "Unauthorized");
+  }
   const { search, category } = req.query;
 
   let query = "SELECT * FROM products WHERE 1=1";
@@ -20,7 +23,7 @@ export const getProducts = async (req) => {
   query += " ORDER BY created_at DESC";
 
   const [rows] = await pool.query(query, params);
-  return rows[0];
+  return rows;
 };
 
 export const createProducts = async (req) => {

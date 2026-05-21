@@ -3,9 +3,12 @@ import { ResponseError } from "../errors/res.js";
 import { transactionsSchema } from "../validation/transactions.js";
 import validate from "../validation/validate.js";
 
-export const getTransactions = async () => {
+export const getTransactions = async (req) => {
+  if (!(req.user.role === "admin" || req.user.role === "kasir")) {
+    throw new ResponseError(403, "Unauthorized");
+  }
   const [rows] = await pool.query(`
-    SELECT t.*, u.name as cashier_name 
+    SELECT t.*, u.username as cashier_name 
     FROM transactions t 
     JOIN users u ON t.cashier_id = u.id 
     ORDER BY t.created_at DESC 
@@ -15,8 +18,11 @@ export const getTransactions = async () => {
 };
 
 export const getTransactionsById = async (req) => {
+  if (!(req.user.role === "admin" || req.user.role === "kasir")) {
+    throw new ResponseError(403, "Unauthorized");
+  }
   const [rows] = await pool.query(
-    "SELECT t.*, u.name as cashier_name FROM transactions t JOIN users u ON t.cashier_id=u.id WHERE t.id=?",
+    "SELECT t.*, u.username as cashier_name FROM transactions t JOIN users u ON t.cashier_id=u.id WHERE t.id=?",
     [req.params.id],
   );
 
@@ -36,12 +42,13 @@ export const getTransactionsById = async (req) => {
 };
 
 export const createTransactions = async (req) => {
-  if (req.user.role !== "admin" && req.user.role !== "kasir") {
+  if (!(req.user.role === "admin" || req.user.role === "kasir")) {
     throw new ResponseError(403, "Unauthorized");
   }
 
   const validated = validate(transactionsSchema, req.body);
-  const { cashier_id, items, paid } = validated;
+  const { items, paid } = validated;
+  const cashier_id = req.user.id;
 
   const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
   const change_amount = paid - total;
@@ -93,7 +100,7 @@ export const createTransactions = async (req) => {
     }
 
     await conn.commit();
-    return { id: transaction_id };
+    return { id: transaction_id, invoice_no, total, change: change_amount };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -102,7 +109,7 @@ export const createTransactions = async (req) => {
   }
 };
 
-export const deleteTransaction = async (req) => {
+export const deleteTransactionsById = async (req) => {
   if (req.user.role !== "admin") {
     throw new ResponseError(403, "Unauthorized");
   }
@@ -146,4 +153,25 @@ export const deleteTransaction = async (req) => {
   } finally {
     conn.release();
   }
+};
+
+export const getTransactionsSummary = async (req) => {
+  if (!(req.user.role === "admin" || req.user.role === "kasir")) {
+    throw new ResponseError(403, "Unauthorized");
+  }
+  const [today] = await pool.query(
+    "SELECT COUNT(*) as count, COALESCE(SUM(total),0) as revenue FROM transactions WHERE DATE(created_at) = CURDATE()",
+  );
+  const [total] = await pool.query(
+    "SELECT COUNT(*) as count, COALESCE(SUM(total),0) as revenue FROM transactions",
+  );
+  const [products] = await pool.query("SELECT COUNT(*) as count FROM products");
+
+  return {
+    today_transactions: today[0].count,
+    today_revenue: today[0].revenue,
+    total_transactions: total[0].count,
+    total_revenue: total[0].revenue,
+    total_products: products[0].count,
+  };
 };

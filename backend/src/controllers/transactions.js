@@ -1,8 +1,8 @@
 import * as TransactionsService from "../services/transactions.js";
 
-export const getTransactionsHandler = async (_req, res, next) => {
+export const getTransactionsHandler = async (req, res, next) => {
   try {
-    const response = await TransactionsService.getTransactions();
+    const response = await TransactionsService.getTransactions(req);
 
     res.status(200).json({
       status: "success",
@@ -46,6 +46,19 @@ export const deleteTransactionsByIdHandler = async (req, res, next) => {
     res.status(200).json({
       status: "success",
       message: "Transactions successfully deleted",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getTransactionsSummaryHandler = async (req, res, next) => {
+  try {
+    const response = await TransactionsService.getTransactionsSummary(req);
+
+    res.status(200).json({
+      status: "success",
+      data: response,
     });
   } catch (err) {
     next(err);

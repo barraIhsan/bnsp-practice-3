@@ -8,7 +8,7 @@ import {
 } from "../controllers/products.js";
 
 const productsRouter = express.Router();
-productsRouter.get("/", getProductsHandler);
+productsRouter.get("/", authenticateToken, getProductsHandler);
 productsRouter.post("/", authenticateToken, createProductsHandler);
 productsRouter.put("/:id", authenticateToken, updateProductsByIdHandler);
 productsRouter.delete("/:id", authenticateToken, deleteProductsByIdHandler);
